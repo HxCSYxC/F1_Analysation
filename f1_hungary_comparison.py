@@ -1,8 +1,8 @@
-# f1_hungary_2022_leclerc.py
+# f1_hungary_comparsion.py
 # IEDA 4000G – Python for Analytics
 # Optimal tyre and pit-stop strategy analysis using Fast-F1
 #
-# This script uses the Fast-F1 Python library (https://github.com/theOehrly/Fast-F1)
+# This script uses the Fast-F1 Python library (https://github.com/theOehrly/Fast-F1) 
 # to access official Formula 1 timing data, telemetry, weather information, and race results.
 # Fast-F1 provides access to:
 # - Official F1 timing data and lap times
@@ -14,11 +14,12 @@
 # Documentation: https://docs.fastf1.dev
 
 # Driver to analyze - change this to analyze a different driver
-TARGET_DRIVER = 'SAI'  # Options: 'VER', 'HAM', 'RUS', 'SAI', 'PER', 'LEC', etc.
+TARGET_DRIVER = 'LEC'  # Options: 'VER', 'HAM', 'RUS', 'SAI', 'PER', 'LEC', etc.
 
 import fastf1
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import pandas as pd
 import os
 from itertools import product
@@ -139,7 +140,7 @@ def load_session(year, gp, session='R'):
     # Get tire compounds - Fast-F1 provides this in the 'Compound' column
     # Handle both 'Compound' and 'TyreCompound' column names for compatibility
     if 'Compound' in laps.columns:
-    compounds = laps['Compound'].fillna('UNKNOWN').values
+        compounds = laps['Compound'].fillna('UNKNOWN').values
     elif 'TyreCompound' in laps.columns:
         compounds = laps['TyreCompound'].fillna('UNKNOWN').values
     else:
@@ -687,10 +688,10 @@ def plot_gap_comparison(df, driver=TARGET_DRIVER):
     for i, (bar, gap_val) in enumerate(zip(bars, gap_min)):
         h = bar.get_height()
         if not np.isnan(h) and h != 0:
-        va = 'bottom' if h >= 0 else 'top'
+            va = 'bottom' if h >= 0 else 'top'
             offset = max(abs(h) * 0.05, 0.1) if h >= 0 else -max(abs(h) * 0.05, 0.1)
-        plt.text(bar.get_x() + bar.get_width()/2, h + offset,
-                f'{h:.2f} min\n({h*60:.0f}s)', ha='center', va=va,
+            plt.text(bar.get_x() + bar.get_width()/2, h + offset,
+                    f'{h:.2f} min\n({h*60:.0f}s)', ha='center', va=va,
                     fontsize=10, fontweight='bold', 
                     bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
     
@@ -815,7 +816,7 @@ def plot_qualifying_temp(years=[2022, 2023, 2024]):
         
         # Fit regression line
         try:
-        line = np.poly1d(np.polyfit(t_s, l_s, 1))
+            line = np.poly1d(np.polyfit(t_s, l_s, 1))
             # Plot scatter points
             plt.scatter(t_s, l_s, c=colors.get(tyre, 'blue'), 
                        marker=markers.get(tyre, 'o'),
@@ -1066,8 +1067,8 @@ def plot_stint_avg_scatter(data, driver=TARGET_DRIVER, years=[2022, 2023, 2024])
     # Plot stints for each year
     for year in sorted(all_stints_by_year.keys()):
         stints = all_stints_by_year[year]
-    idx = np.arange(1, len(stints) + 1)
-    avg = np.array([s['avg'] for s in stints], dtype=float)
+        idx = np.arange(1, len(stints) + 1)
+        avg = np.array([s['avg'] for s in stints], dtype=float)
         
         # Use year-specific color and marker
         year_color = year_colors.get(year, 'blue')
@@ -1075,7 +1076,7 @@ def plot_stint_avg_scatter(data, driver=TARGET_DRIVER, years=[2022, 2023, 2024])
         
         # Plot scatter points with tyre-specific colors
         # Use tyre colors for the scatter points, but keep year markers
-    for i, s in enumerate(stints):
+        for i, s in enumerate(stints):
             tyre_color = tyre_to_color.get(s['tyre'], 'blue')
             # Blend year color with tyre color for visual distinction
             plt.scatter(idx[i], avg[i], c=tyre_color, marker=year_marker, s=120, 
@@ -1125,6 +1126,73 @@ def plot_stint_avg_scatter(data, driver=TARGET_DRIVER, years=[2022, 2023, 2024])
     plt.savefig(f'{driver.lower()}_stint_avg_scatter.png', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"    Stint scatter plot saved: {driver.lower()}_stint_avg_scatter.png")
+
+def plot_all_drivers_optimal_comparison(df):
+    """
+    Creates the four-panel "All Drivers Optimal Strategies Comparison" plot
+    exactly matching the reference image.
+    """
+    # Sort by actual finishing position (1st to 6th)
+    df = df.sort_values('Actual_Pos').reset_index(drop=True)
+    drivers = df['Driver'].tolist()
+    
+    # Data
+    pos_change = df['Pos_Change'].tolist()
+    time_saved = df['Time_Saved_min'].tolist()
+    actual_time = df['Actual_Time_min'].tolist()
+    optimal_time = df['Optimal_Time_min'].tolist()
+    
+    fig = plt.figure(figsize=(20, 7))
+    gs = GridSpec(1, 3, figure=fig, hspace=0.4, wspace=0.5)
+    
+    # === Left: Position Change ===
+    ax1 = fig.add_subplot(gs[0, 0])
+    bar_colors = ['green' if x > 0 else 'red' if x < 0 else 'lightgray' for x in pos_change]
+    bars1 = ax1.bar(drivers, pos_change, color=bar_colors, edgecolor='black', linewidth=0.8)
+    ax1.set_title('Position Change with Optimal Strategy', fontsize=14, fontweight='bold', pad=20)
+    ax1.set_ylabel('Position Change')
+    ax1.axhline(0, color='black', linewidth=1)
+    ax1.grid(axis='y', alpha=0.3)
+    
+    for bar, change in zip(bars1, pos_change):
+        if change != 0:
+            va = 'bottom' if change > 0 else 'top'
+            offset = 0.25 if change > 0 else -0.25
+            ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + offset,
+                     f'{change:+d}', ha='center', va=va, fontweight='bold', fontsize=11)
+    
+    # === Middle: Time Saved ===
+    ax2 = fig.add_subplot(gs[0, 1])
+    bars2 = ax2.bar(drivers, time_saved, color='#1f77b4', edgecolor='black', linewidth=0.8)
+    ax2.set_title('Time Saved with Optimal Strategy', fontsize=14, fontweight='bold', pad=20)
+    ax2.set_ylabel('Time Saved (minutes)')
+    ax2.grid(axis='y', alpha=0.3)
+    
+    for bar, ts in zip(bars2, time_saved):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.03,
+                 f'{ts:.2f} min', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    
+    # === Right: Actual vs Optimal Race Time ===
+    ax3 = fig.add_subplot(gs[0, 2])
+    x = np.arange(len(drivers))
+    width = 0.35
+    ax3.bar(x - width/2, actual_time, width, label='Actual Time', color='#ff7f0e', edgecolor='black')
+    ax3.bar(x + width/2, optimal_time, width, label='Optimal Time', color='#2ca02c', edgecolor='black')
+    ax3.set_title('Actual vs Optimal Race Time', fontsize=14, fontweight='bold', pad=20)
+    ax3.set_ylabel('Race Time (minutes)')
+    ax3.set_xticks(x)
+    ax3.set_xticklabels(drivers)
+    ax3.legend(fontsize=11)
+    ax3.grid(axis='y', alpha=0.3)
+    
+    # Main title
+    fig.suptitle('All Drivers Optimal Strategies Comparison - 2022 Hungarian GP',
+                 fontsize=18, fontweight='bold', y=0.98)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for suptitle
+    plt.savefig('all_drivers_optimal_strategies_comparison.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print("    All drivers comparison plot saved: all_drivers_optimal_strategies_comparison.png")
 
 # Main
 if __name__ == "__main__":
@@ -1207,7 +1275,7 @@ if __name__ == "__main__":
             if gap_col not in pos_df.columns:
                 print(f"  ✗ ERROR: Column '{gap_col}' not found in position gain dataframe!")
                 print(f"     Available columns: {list(pos_df.columns)}")
-    else:
+            else:
                 print("\nRace Times and Positions:")
                 print(pos_df[['Driver', 'Real_Time_min', 'Sim_Time_min', 'Real_Pos', 'Sim_Pos', 'Pos_Gain']].to_string(index=False))
                 print(f"\nGap to {TARGET_DRIVER} Optimal Strategy:")
@@ -1280,12 +1348,20 @@ if __name__ == "__main__":
     print(f"  Using data from {YEARS_FOR_TEMP_ANALYSIS} for more data points and robust conclusions")
     try:
         plot_qualifying_temp(YEARS_FOR_TEMP_ANALYSIS)
-    print("  → qualifying_temp_analysis.png")
+        print("  → qualifying_temp_analysis.png")
     except Exception as e:
         print(f"  ✗ ERROR in qualifying temperature analysis: {e}")
         import traceback
         traceback.print_exc()
     
+                        # Save all-drivers analysis
+    all_drivers_filename = 'all_drivers_optimal_strategies.csv'
+    all_optimal_df.to_csv(all_drivers_filename, index=False)
+    if os.path.exists(all_drivers_filename):
+        print(f"\n  ✓ Saved: {all_drivers_filename}")
+                    
+                    # === NEW: Generate the four-panel comparison plot ===
+    plot_all_drivers_optimal_comparison(all_optimal_df)
     # Assignment-style simple outputs
     print("\nCreating assignment-style summary and plots...")
     export_stint_summary_csv(race_data, TARGET_DRIVER)
